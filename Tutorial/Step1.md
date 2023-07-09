@@ -17,10 +17,27 @@ PLATEAUは他のさまざまな位置情報と組み合わせて使うことで�
 
 今回は、Unity 2021.3.16f1を使用して進めていきます。.16f1などのマイナーバージョンはあまり気にしなくてよいと思いますが、PLATEAU SDK for Unityが現在Unityバージョン2021.3を想定しているので、2021.3系列を使用するとよいでしょう。
 
+また、プロジェクトテンプレートとして、3D(URP)を使い、Universal Render Pipelineのプロジェクトとして作成していきます。
+
 SDKのマニュアルなどにしたがって、新規プロジェクトを作成しSDKを導入します。
 
-この際、読み込む座標系を確認します。PLATEAU SDK for Unityでは、インポート時に平面直角座標系に変換するようになっています。平面直角座標系は日本固有の投影座標系で、日本全国を19のゾーンに分け、ガウスの等角投影法を適用した座標系です。
-そのため、これから作るアプリでは最終的に平面直角座標系に変換することで、PLATEAUの3D都市モデルと合わせていきます。
+今回は、筆者の自宅周辺の東京都豊島区の大塚駅周辺でアプリを作っていきましょう。
+SDKのダイアログを開き、あらかじめダウンロードし展開しておいた東京23区の3D都市モデルデータ(CityGML v2)のフォルダを指定します。また基準座標系の選択で「09:東京(本州),福島,栃木,茨木,埼玉,千葉,群馬,神奈川」を選びます。これらは対象とする3D都市モデルに合わせて読み替えてください。
+
+PLATEAU SDK for Unityでは、インポート時に平面直角座標系に変換するようになっています。平面直角座標系は日本固有の投影座標系で、日本全国を19のゾーンに分け、ガウスの等角投影法を適用した座標系です。そのため、これから作るアプリでは最終的に平面直角座標系に変換することで、PLATEAUの3D都市モデルと合わせていきます。
+
+次に必要範囲を選択します。
+
+![範囲選択](image-29.png)
+
+地物別選択では、建築物のLOD1のみを選択します。
+今回は3D都市モデルをアタリを付けるためとオクルージョンのために使用するので、あまり詳細なモデルではなく、軽量なLOD1を使いましたが、アプリケーションによって使い分けてください。
+
+基準座標系からのオフセット値の設定では、自動的に範囲の中心が設定されるのでデフォルトで設定されている値で進めます。この値は、インポートされた3D都市モデルのデータのインスペクタで確認できます。これ以降の座標変換でも使いますので、確認しておきます。
+
+![変換パラメータの確認](image-30.png)
+
+最後に、「モデルをインポート」ボタンを押して、3D都市モデルのインポートを実行します。
 
 <!-- 
 SDKで読み込む方法の紹介と、その際の座標変換の確認
@@ -35,8 +52,11 @@ SDKで読み込む方法の紹介と、その際の座標変換の確認
 ### 座標計算の一般的な注意
 
 緯度経度の座標から、平面直角座標系の座標に変換するプログラムを作成します。変換式は国土地理院が公開しているので、それをプログラムに落とし込みます。
-一般的な注意点ですが、地理座標を扱うプログラムでは数値計算の誤差に注意します。とくに、地球規模の座標計算をする場合、たとえば地球の周囲長は約4万㎞なので、メートルで記述すると約40,000,000mとなります。また、コンピューターが扱う浮動小数点規格の標準であるIEEE754を参照すると、一般的にfloatとして知られる32ビットの単精度浮動小数点の形式では実際の数字を現す仮数部が23ビットとなり、10進数でおよそ7桁の数字を表現できます。つまり、地球の周囲長と比べてみると上から数えて10mの位までしか表現できません。地球規模の座標の演算を行う際にfloatを使うと、10m以下の数字は計算されないことになり、大きく精確性が落ちます。
+
+一般的な注意点ですが、地理座標を扱うプログラムでは数値計算の誤差に注意します。とくに、地球規模の座標計算をする場合、たとえば地球の周囲長は約4万㎞なので、メートルで記述すると約40,000,000mとなります。一方で、コンピューターが扱う浮動小数点規格の標準であるIEEE754を参照すると、一般的にfloatとして知られる32ビットの単精度浮動小数点の形式では実際の数字を現す仮数部が23ビットとなり、10進数でおよそ7桁の数字を表現できます。つまり、地球の周囲長と比べてみると上から数えて10mの位までしか表現できません。地球規模の座標の演算を行う際にfloatを使うと、10m以下の数字は計算されないことになり、大きく精確性が落ちます。
+
 一方で、Unityなどの3Dコンピュータグラフィックスを描画するプログラムは、一般的に高速化のためfloatで座標を表します。
+
 こうした違いのため、座標変換のプログラム内では倍精度浮動小数であるdoubleで計算し、扱いやすい局所的な座標に計算してからfloatにキャストしてUnityなどに渡す、という方法をとるのがよいでしょう。
 
 ### 平面直角座標系への変換
@@ -214,6 +234,8 @@ CSVファイルはカンマでデータを区切ったテキストファイル�
 35.730020,139.723019,30.8
 ```
 
+<!-- 読者への宿題。これはなんの店の座標でしょう？なんちゃって -->
+
 手作業で場所のデータを作成するときは、国土地理院の公開している[地理院地図](https://maps.gsi.go.jp/)が便利です。地図中心の地理座標や標高などを調べることができます。
 
 ![地理院地図の画面](image-3.png)
@@ -265,15 +287,15 @@ CSVファイルは`TextAsset`として読み込むようにしましたが、Fil
 
 ![読み込むCSVファイルの設定](image-6.png)
 
-CSVファイルのパースは便利なライブラリなどもありますが、今回は簡単な読み込みロジックを書きました。
-座標変換には、作成した変換クラスを使っています。平面直角座標系の原点は9系の値を設定しています。
+CSVファイルのパースは便利なライブラリなどもありますが、今回は簡単な読み込みロジックを書きました。座標変換には、作成した変換クラスを使っています。平面直角座標系の原点は9系の値を設定しています。
+
 また、Unity SDK for PLATEAUで読み込む際に設定したオフセットの値を引き算しています。
 平面直角座標では、Xが南北方向、Yが東西方向を表すので、そこも注意しましょう。
 オフセットの座標は読み込んだ3D都市モデルのインスペクターで確認できます。
 
 ![PLATEAU SDK for Unityで読み込んだ細の座標基準点の確認](image-7.png)
 
-実行すると図のように、PLATEAUの3D都市モデルと合わせて指定した位置にオブジェクトを配置します。
+実行すると図のように、PLATEAUの3D都市モデルと合わせて指定した位置に赤い柱状のオブジェクトを配置します。
 
 ![実行画面](image-4.png)
 
@@ -299,6 +321,7 @@ AssetStoreで入手したら、PackageManagerを開き、Download,Importしま�
 以下のプログラムを作成します。StartでLocationのサービスを初期化しています。
 NativeToolkitは高さを取得するメソッドがないので、そこだけUnity標準のInput.Locationを使うようにします。
 placeGameObjectメソッド内で緯度経度を取得しています。取得した緯度経度はそのまま平面直角座標系への変換を行い、オフセットを引いてGameObjectの座標としています。
+また、適当なUIボタンを配置して、OnClickのイベントハンドラにplaceGameObjectメソッドを指定します。
 
 ```csharp:PhoneGPS.cs
 using System.Collections;
@@ -344,19 +367,37 @@ GPS座標などの緯度経度の情報をPLATEAUで扱う
 
 ### GPS受信機のデータを重ねる
 
-一般的なGPS受信機ではNMEAという形式で様々な情報が出力されます。これを保存したファイルを読み込み、座標変換してPLATEAUの3D都市モデル上に重ねて表示します。
+<!-- GPSにするかGNSSと書くか悩む -->
+
+一般的なGPS受信機ではNMEAという形式で座標や受信している衛星などのさまざまな情報が出力されます。これを保存したファイルを読み込み、座標変換してPLATEAUの3D都市モデル上に重ねて表示します。
+
+現在では、さまざまなGPS受信機が入手できます。たとえば、GARMIN社のGPS受信機（例：[GPSMAP 66i](https://www.garmin.co.jp/products/outdoor/gpsmap-66i/)）のように、ディスプレイ付きで単体でナビゲーションできるものから、[GPS-RTK-SMAモジュール](https://www.switch-science.com/products/6365)のような、モジュールとして組み込むための基板も市販されています。
+
+また、スマートフォンに搭載されているような一般的なGPS受信機は、精度が10m以上の1周波の単体GPSが多いのですが、2周波以上の多波長に対応する受信機や、サーバーと補正情報を通信することで最高精度が数㎝にもなるRTKという仕組みを搭載した高精度な受信機もあります。
+
+ここでは、ビズステーション株式会社が販売しているDroggerの[RWP](https://www.bizstation.jp/ja/drogger/package_index.html?tab=rwp#RWP)パッケージを使用し、ソフトバンク株式会社が提供する[ichimill](https://www.softbank.jp/biz/services/analytics/ichimill/)サービスを補正情報として使用してRTKによる高精度測位でNMEAデータを作成しました。
 
 NMEAでは、行単位のカンマ区切りのテキストデータでGPSに関する情報を表します。
 例として、今回使用したDroggerのRWPのNMEA出力を示します。
 
 ```
-TODO　NMEA
+$GNGGA,070239.87,3543.9279547,N,13943.5410115,E,5,12,0.64,31.530,M,39.331,M,0.9,0150*50
+$GNGGA,070240.00,3543.9278367,N,13943.5410033,E,5,12,0.64,31.578,M,39.331,M,1.0,0150*55
+$GNGGA,070240.12,3543.9277397,N,13943.5409928,E,5,12,0.64,31.683,M,39.331,M,1.1,0150*5B
+$GNGGA,070240.25,3543.9276340,N,13943.5409879,E,5,12,0.65,31.691,M,39.331,M,1.3,0150*51
+$GNGGA,070240.37,3543.9275475,N,13943.5409796,E,5,12,0.64,31.720,M,39.331,M,1.4,0150*53
+$GNGGA,070240.50,3543.9274611,N,13943.5409773,E,5,12,0.64,31.792,M,39.331,M,1.5,0150*50
+$GNGGA,070240.62,3543.9273552,N,13943.5409905,E,5,12,0.65,31.867,M,39.331,M,0.6,0150*5B
+$GNGGA,070240.75,3543.9272637,N,13943.5410161,E,5,12,0.64,31.859,M,39.331,M,0.8,0150*5C
+$GNGGA,070240.87,3543.9271658,N,13943.5409850,E,5,12,0.60,31.785,M,39.331,M,0.9,0150*53
+$GNGGA,070241.00,3543.9270604,N,13943.5409561,E,5,12,0.60,31.772,M,39.331,M,1.0,0150*5A
 ```
 
 CSVの時のように、NMEAのファイルをパースして、PLATEAUと合わせて表示するプログラムを書きます。
 今回はGPS受信機の軌跡をLineRendererを使って線で表示します。
 
 ```csharp:ReadNMEA.cs
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -374,28 +415,35 @@ public class ReadNMEA : MonoBehaviour
         var lines = nmea.text.Split("\n");
         foreach (var line in lines)
         {
-            if (line.Contains(","))
+            try
             {
-                var tokens = line.Split(",");
-
-                if (tokens[0] == "$GPGGA")
+                if (line.Contains(","))
                 {
-                    double lat = double.Parse(tokens[2].Substring(0, 2)) + double.Parse(tokens[2].Substring(2)) / 60d;
-                    double lon = double.Parse(tokens[4].Substring(0, 3)) + double.Parse(tokens[4].Substring(3)) / 60d;
-                    float height = float.Parse(tokens[9]);
+                    var tokens = line.Split(",");
 
-                    (var x, var y) = CoordinateUtil.JGD2011ToPlaneRectCoord(lat, lon, 36d, 139.83333333333d);
+                    if (tokens[0] == "$GNGGA")
+                    {
+                        double lat = double.Parse(tokens[2].Substring(0, 2)) + double.Parse(tokens[2].Substring(2)) / 60d;
+                        double lon = double.Parse(tokens[4].Substring(0, 3)) + double.Parse(tokens[4].Substring(3)) / 60d;
+                        float height = float.Parse(tokens[9]);
 
-                    x = x + 29787.4390;
-                    y = y + 9810.3435;
+                        (var x, var y) = CoordinateUtil.JGD2011ToPlaneRectCoord(lat, lon, 36d, 139.83333333333d);
 
-                    positions.Add(new Vector3((float)y, (float)height, (float)x));
+                        x = x + 29787.4390;
+                        y = y + 9810.3435;
+
+                        positions.Add(new Vector3((float)y, (float)height, (float)x));
+                    }
                 }
+            } catch(Exception e) {
+                Debug.LogException(e);
             }
         }
+        lr.positionCount = positions.Count;
         lr.SetPositions(positions.ToArray());
     }
 }
+
 ```
 
 NMEA形式では、緯度、経度の値が、DDMM.MMMMやDDDMM.MMMMのように表されます。これをDD.DDDDDDの形式に変換するための処理をパース時に実行しています。
@@ -407,7 +455,7 @@ UnityのLineRendererは、線を描画するための仕組みで、LineRenderer
 
 GPSが利用する座標系はWGS84ですが、JGD2011と実用上ほとんど同じため、ここではWGS84からJGD2011の座標系の変換は行いません。GPS受信機からのWGS84の座標をJGD2011とみなして平面直角座標に変換し、表示しています。
 
-TODO　実際の画面
+![GPS軌跡の表示](image-27.png)
 
 <!-- 
 NMEAのファイルをパースするコード
@@ -428,11 +476,11 @@ RTK-GNSSの説明もしたらいいか
 
 ![G空間情報センター](image-11.png)
 
-また、国土交通省の[国土数値情報](https://nlftp.mlit.go.jp)には、多くの地理情報オープンデータが掲載されています。
+また、国土交通省の[国土数値情報](https://nlftp.mlit.go.jp)にも、多くの地理情報オープンデータが掲載されています。
 
 ![国土数値情報Webサイト](image-10.png)
 
-今回は、国土交通省の国土数値情報から、最近更新のあったバス停留所のデータを変換して表示してみます。
+今回は、国土交通省の国土数値情報から、バス停留所のデータを変換して表示してみます。
 
 まず、[国土数値情報のページ](https://nlftp.mlit.go.jp/ksj/index.html)から、バス停留所のリンクを選択します。
 
@@ -560,6 +608,14 @@ public class OpenData : MonoBehaviour
 
 ![実行した画面](image-25.png)
 
+#### コラム　点以外のジオメトリの読み込みについて
+
+シェープファイルには、点以外にも、線、面などのジオメトリが格納されていることがあります。また、シェープファイル以外でも、さまざまな形式のデータで、これらの線や面のジオメトリを読み込みたいときがあります。線に関しては、NMEAの項で説明したLineRendererで描画する方法もありますが、UnityのMeshでは、各頂点をスクリプトから設定する仕組みがあり、それを利用して線や面を描画することもできます。
+
+面の場合は、Unityでは三角形以外の多角形を直接描画できないので、多角形を三角形に分割するアルゴリズムを利用します。Earcut(参考：[MapboxのEarcutアルゴリズムのJavaScript実装](https://github.com/mapbox/earcut))などが有名なので、参考にしてください。
+
+また、[WKT(Well Known Text)](https://ja.wikipedia.org/wiki/Well-known_text)というジオメトリ情報をテキスト化してアプリ間をとりまわすためのフォーマットが定義されています。QGISでもエクスポート時にこれを選択でき、Unity側でパーサーを作成し読み込むことができるでしょう。
+
 <!--
 オープンデータを扱う
 地理情報データの探し方・作り方
@@ -579,21 +635,117 @@ WGS84とECEF/ENUの変換
 
 ## ARアプリの開発
 
-最後に、実際のARアプリにまとめます。ここでは、あらかじめアプリに内蔵した位置情報をAR表示する機能、新しい位置情報を端末のGPSから記録してAR表示する機能、3D都市モデルを表示する機能を持ったARアプリを作成します。
+最後に、ここまでさまざまな位置情報を表示してきたものを実際のARアプリにまとめます。ここでは、あらかじめアプリに内蔵した位置情報をAR表示する機能、新しい位置情報を端末のGPSから記録してAR表示する機能、3D都市モデルを表示する機能を持ったARアプリを作成します。
 
+<!--
 ### 座標の保存
 
 PlayerPrefsに保存する仕組みを作る
 座標保存の方法　Doubleにすることなど
+-->
 
 ### PLATEAUモデルの調整
 
-半透明オクルージョン
+ARで見やすいように3D都市モデルの表示を工夫します。
+今回は、完全に透明なオクルージョンではなく、3D都市モデルが半透明で見えるようなマテリアルを作成します。ただ単に半透明で表示すると、建物同士の重なりが多い部分が白飛びして見えにくくなるので、深度を考慮した半透明のシェーダーを書きます。
 
-### 表示の工夫
+仕組みは、まず深度バッファのみ更新し、その上に深度バッファを検証しながら半透明で描画する2パスのシェーダーとなります。
 
-PLATEAUに隠れたらステンシルで色変える
-https://nn-hokuson.hatenablog.com/entry/2017/05/02/185320
+今回のプロジェクトがURPなので、URPに対応したシェーダーを書きます。また、このシェーダーを使うマテリアルを作成します。
+
+```glsl:Building.shader
+Shader "Custom/Building"
+{
+    Properties
+    {
+        _Color("Color", Color) = (1,1,1,1)
+    }
+        SubShader
+    {
+        Tags {"Queue" = "Transparent" "IgnoreProjector" = "True" "RenderType" = "Transparent"}
+        LOD 200
+
+        Pass {
+            Tags {"LightMode" = "SRPDefaultUnlit"}
+            ZWrite On
+            ColorMask 0
+        }
+
+        Pass
+        {
+            Tags {"LightMode" = "UniversalForward"}
+            Tags{ "QUEUE" = "Transparent" "IGNOREPROJECTOR" = "true" "RenderType" = "Transparent" }
+            Blend SrcAlpha OneMinusSrcAlpha
+            ColorMask RGBA
+            ZWrite Off
+            ZTest LEqual
+
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+
+            #include "UnityCG.cginc"
+
+            fixed4 _Color;
+
+            struct appdata
+            {
+                float4 vertex : POSITION;
+                float3 normal : NORMAL;
+            };
+
+            struct v2f
+            {
+                float4 vertex : SV_POSITION;
+                float3 worldNormal : TEXCOORD0;
+            };
+
+            v2f vert(appdata v)
+            {
+                v2f o;
+                o.vertex = UnityObjectToClipPos(v.vertex);
+                o.worldNormal = UnityObjectToWorldNormal(v.normal);
+                return o;
+            }
+
+            fixed4 frag(v2f i) : SV_Target
+            {
+                float3 L = normalize(_WorldSpaceLightPos0.xyz);
+                float3 N = normalize(i.worldNormal);
+                fixed4 col = _Color * max(0, dot(N, L) * 0.5f + (1 - 0.5f));
+                return col;
+            }
+            ENDCG
+        }
+    }
+}
+```
+
+![Buildingマテリアル](image-31.png)
+
+Colorには、任意の色を設定してください。画面では灰色にしています。
+
+さらに、このシェーダーは1つのメッシュでしか有効ではありません。2パスでの描画の場合、メッシュ一つごとに2つのパスが交互に実行されるため、そのメッシュ内では背後が隠れますが、他のメッシュで描画したものは透過してしまうためです。もともとの3D都市モデルは、区画ごとにメッシュが分割されているため、全体を1つのメッシュにまとめてしまいます。
+
+メッシュをまとめるやり方はいくつかありますが、ここでは、Unity Asset Storeから[MeshCombiner](https://assetstore.unity.com/packages/tools/modeling/mesh-combiner-157192)をインストールして使います。AssetStoreで入手したらPackage Managerからインストールしてください。
+
+読み込んだ3D都市モデルのゲームオブジェクトにMesh Combinerスクリプトをアタッチし、図のような設定にして「Combine Meshes」ボタンを押すと、すべてのメッシュが1つにまとまります。
+
+![Mesh Combiner](image-32.png)
+
+子についている、「53394588_bldg_6697_2_op.gml」などのオブジェクトはDisableにするか、消すなどしておきます。
+
+これでメッシュが統合され、先ほどのマテリアルを設定することで半透明だけど背後は描画されないという意図した見え方になります。
+
+![見え方](image-33.png)
+
+<!-- 半透明オクルージョン -->
+
+#### コラム　メッシュの統合について
+
+メッシュをまとめるとGame Objectの階層構造の削減やDraw Callの削減により描画が効率化することで、だいたいパフォーマンスが向上します。しかし、広大な範囲のメッシュをまとめてしまうと、まとめる前は表示されないと判断されて描画していなかった部分の計算がまとめてしまったために判定しなければならなくなり、場合によってはパフォーマンスが悪化します。
+
+あまりにも広大な範囲のメッシュをまとめるときは気を付けてください。
 
 ### GeospatialAPI・ARFoundationの設定
 
@@ -607,6 +759,6 @@ Geospatial Anchorで配置する
 
 ### アプリ完成
 
-スマホGPSのポイントがPlayerPrefsに保存される
+ボタンを押すとその場所にピンが表示される
 あらかじめアプリ内に入れた複数のCSVがそれぞれのピンで表示される
 
