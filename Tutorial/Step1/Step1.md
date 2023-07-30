@@ -749,16 +749,55 @@ Colorには、任意の色を設定してください。画面では灰色にし
 
 ### GeospatialAPI・ARFoundationの設定
 
-ドキュメントを提示しながら設定手順解説
+次に、ARFoundationとGepspatialAPIを導入します。詳細は、PLATEAU公式サイトのチュートリアルコンテンツの[TOPIC14-3　「Google Geospatial APIで位置情報による3D都市モデルのARを作成する」](https://www.mlit.go.jp/plateau/learning/tpc14-3/)も参考にしてください。
 
-### ピンの配置
+［Window］メニューから［Package Manager］を開きます。左上の［＋］をクリックし、［Add package from git URL］を選択します。そして次のURLを貼り付け、［Add］をクリックします。
 
-POIのピンがARで現実の風景に重畳されるようなアプリを想定
-Geospatial Anchorで配置する
-平面直角座標でのオフセットで子要素として配置する
+https://github.com/google-ar/arcore-unity-extensions.git
+
+![Gitからインストール](image-34.png)
+
+ARCore Extensionsの追加画面が表示されたら、［Samples］の項目にある［Geospatial Sample］の［Import］をクリックして、このサンプルもインポートしておいてください。
+
+ARCore Extensionsをインストールすると、設定したビルドプラットフォームに応じて、必要な依存関係の拡張も合わせてインストールされます。
+
+さらに、［Edit］メニューから［Project Settings］を開き、いくつかの設定を加えます。
+
+![Android ARCore有効](image-35.png)
+
+![iOS　ARKit有効](image-36.png)
+
+APIキーは、Google Cloudのコンソールで作成し、設定してください。
+
+![API キーの設定](image-37.png)
+
+![Geospatial Config](image-38.png)
+
+Playerタブで、Android,iOSの各プラットフォームを以下のように設定します。
+
+【Androidの場合】
+
+- Minimum API Levelは、28程度が妥当です。
+- IL2CPPでビルドします。
+- Graphics APIは、OpenGL ES3以上が必要です。
+
+【iOSの場合】
+
+- サポートするOSは、iOS11以上です。
+- ARM64でビルドします。
+
+URPの設定で、Renderer FeaturesにAR Background Renderer Featureが設定されていない場合、追加します。
+
+![AR Background Renderer Feature](image-39.png)
+
+ヒエラルキーの[Assets]-[Samples]以下のGeospatialAPIのサンプルの中から、Geospatialシーンを開き、これまで作ってきたシーン内の、3D都市モデルとデータの読み込みのオブジェクトなどをコピーします。
+
+
+
 
 ### アプリ完成
 
+<!-- 
 ボタンを押すとその場所にピンが表示される
 あらかじめアプリ内に入れた複数のCSVがそれぞれのピンで表示される
-
+-->
