@@ -793,8 +793,6 @@ URPの設定で、Renderer FeaturesにAR Background Renderer Featureが設定さ
 ヒエラルキーの[Assets]-[Samples]以下のGeospatialAPIのサンプルの中から、Geospatialシーンを開き、これまで作ってきたシーン内の、3D都市モデルとデータの読み込みのオブジェクトなどをコピーします。
 
 
-
-
 ### アプリ完成
 
 <!-- 
