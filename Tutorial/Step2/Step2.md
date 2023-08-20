@@ -296,8 +296,10 @@ nurinuriplateau=> SELECT ST_Area(ST_GeomFromText('POLYGON((0 0, 0 1.1, 1.1 1.1, 
 UnityWebRequest
 APIに合わせてリクエスト
 ループを閉じたときにまとめてリクエスト
+ユーザーが受け取っている最後のIDも送る
 DBに、ID（AutoInc）、時刻、ユーザーのUUID、Geomを格納
-
+ユーザーが受け取っていないIDの時刻内のGeomと面積の集計を返却する
+トランザクション忘れるな
 
 ### サーバーでの面積の計算
 PostGISのクエリでSQLで計算してみる
@@ -312,11 +314,20 @@ SELECT　でArea計算
 
 ### コラム　チート対策
 
+地理情報を扱ううえでのチート対策など
+
 ### コラム　プライバシーについて
+
+地理情報は個人情報であることの説明
 
 ## アプリとしてリリースする
 
-AppStore・Google Playに出す方法
+### Google Playに出す
+
+
+### AppStoreに出す
+
+
 
 
 //////　以下メモ
