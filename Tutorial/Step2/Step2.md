@@ -305,13 +305,94 @@ placeplateau=# create table placedata (
 
 ### Webアプリケーションプログラムの作成
 
-Python3とその周辺環境をインストールします。
+Python3とその周辺環境をインストールします。wsgi経由でnginxをWebサーバーに使います。
 
 ```
 $ sudo apt install python3 python3-pip python3-venv nginx
 ```
 
+Pythonのvenvを設定しFlaskと必要なライブラリをインストールします。
 
+```
+$ sudo apt install libpq-dev
+$ mkdir placeplateau_web
+$ cd placeplateau_web/
+$ pwd
+/home/ubuntu/placeplateau_web
+$ python3 -m venv venv
+$ source venv/bin/activate
+(venv) $ pip install Flask uwsgi geoalchemy2 flask_sqlalchemy psycopg2 geoalchemy2[shapely]
+```
+
+次のPythonプログラムをエディタなどで作成します。
+
+``` app.py
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from geoalchemy2 import Geometry
+from geoalchemy2.shape import to_shape
+from datetime import datetime,date
+import json
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost/placeplateau'
+db = SQLAlchemy(app)
+
+class PlaceData(db.Model):
+    __tablename__ = 'placedata'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    userid = db.Column(db.String)
+    side = db.Column(db.Integer)
+    created_at = db.Column(db.Time)
+    geom = db.Column(Geometry('POLYGON'))
+    area = db.Column(db.Float(5,False,3))
+
+    def getdict(self):
+        return {"id":self.id,
+                "userid":self.userid,
+                "side":self.side,
+                "created_at":str(self.created_at),
+                "geom":to_shape(self.geom).wkt,
+                "area":self.area}
+
+@app.route('/')
+def hello():
+    return 'PlacePLATEAU API SERVER'
+
+@app.route('/getarea')
+def getArea():
+    today = date.today()
+    placedatas = db.session.query(PlaceData).where(PlaceData.created_at >= today).order_by(PlaceData.id)
+    datas = []
+    for placedata in placedatas:
+        print(placedata.id)
+        datas.append(placedata.getdict())
+    return json.dumps(datas)
+
+@app.route('/makearea', methods=['POST'])
+def makeArea():
+    data = request.json
+
+    lastid=data['lastid']
+    newarea=data['newarea']
+
+    placedatas = db.session.query(PlaceData).where(PlaceData.created_at >= today).order_by(PlaceData.id)
+    datas = []
+    for placedata in placedatas:
+        print(placedata.id)
+        datas.append(placedata.getdict())
+    return json.dumps(datas)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0')
+```
+
+
+
+
+メモ
+ドメインの確保どうしようか…例として進める分には自分が持ってるドメインを使えばいいけど…
+無料ではできんよなぁ。無料のDDNSとかでやれるかなぁ？
 
  sudo -u postgres psql
 
@@ -366,7 +447,9 @@ create table placedata (
 
 nurinuriplateau=> SELECT ST_Area(ST_GeomFromText('POLYGON((0 0, 0 1.1, 1.1 1.1, 1.1 0, 0 0))',4326)::geography);
       st_area
+
 --------------------
+
  14893547154.626783
 (1 row)
 
