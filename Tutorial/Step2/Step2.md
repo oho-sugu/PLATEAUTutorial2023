@@ -213,25 +213,106 @@ GeospatialでWorld座標から緯度経度にする
 FirebaseなどのMBaaSや、Photonなどのリアルタイム通信基盤など、まったく別の考え方の選択肢もあります。
 ここでは詳細を説明しませんが、作りたいサービスに合わせて選択してください。
 
-### サーバーのプログラムを作る
-Python・Flaskで作るかな
-送信可能なAPIをまず作る
-デプロイ先はAWSにしよう
-スキーマの決定
+### サーバーの準備
 
-早速サーバーのプログラムを開発します。
+AWSでEC2インスタンスを立ち上げます。AWSを使うにはアカウントの登録が必要です。今回は無料枠の範囲内でできるように構成していますが、設定のミスなどで予想外の金額が請求されることもあります。アカウントの2段階認証を設定するなど、セキュリティなどには十分気を付けてください。
+また、本項はある程度AWSを使い慣れている前提で進めます。分からないことがある場合はAWSのドキュメントなどを参照してください。
 
-AWSでインスタンス立ち上げ
+また、内容の中にセキュリティの側面などで本番環境で動作させるには適さない部分があります。本項のアプリはあくまでも解説用のサンプルということで、実際のサービスなどを構築していく際には十分考慮してください。
 
-Ubuntu 22.04
-t3a.nano
+EC2インスタンスはいわゆるクラウドの仮想マシンです。クラウドの使い方としては旧式なものですが、なるべく基本的なところから説明して分かりやすくという方向で説明します。サーバーレスなど最近のモダンな構成を試したい方は是非チャレンジしてみてください。
+
+OSは、著者が使い慣れていることもあり、Ubuntu 22.04を使います。インスタンスタイプは現時点ではt3a.nanoが単価が安いのでこちらを使っていきます。（※注：無料枠の範囲でやりたい人は`t2.micro`を選択してください）
+キーペアなどは適切に設定してください。セキュリティグループは、SSHとHTTPSが通るように設定してください。テスト用にHTTPが通ってもよいと思いますが、スマホアプリからのアクセスではHTTPSが必須である場合が大半なので基本はHTTPSを使います。（※注：本番環境ではHTTPは外にさらさない方がいいと思います。）
+
+![EC2インスタンスの起動](image-22.png)
+
+SSHで接続し環境構築します。最初に、PostgreSQLとその地理空間拡張のPostGISをインストールします。ついでにシステムのアップデートも一緒にしておきましょう。
+
+```
+$ sudo apt update
+$ sudo apt upgrade
+$ sudo apt install postgresql postgis
+```
+
+まずログインできるようにパスワードを設定します。
+
+```
+$ sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'passwd';"
+```
+
+このままだと、PostgreSQLのPeer認証になっているので、postgresユーザーしかアクセスできません。この後の作業に不便なので、Peer認証を変更します。以下のコマンドでPostgreSQLの設定ファイルを開きます。
+（エディターはvimでもEmacsでもお好みのものを使ってください。例ではnanoを使います。）
+
+```
+$ sudo nano /etc/postgresql/14/main/pg_hba.conf
+```
+
+```
+# Database administrative login by Unix domain socket
+local   all             postgres                                peer
+```
+この行を
+```
+# Database administrative login by Unix domain socket
+local   all             postgres                                scram-sha-256
+```
+このように変えて保存します。
+
+```
+$ sudo service postgresql restart
+```
+PostgreSQLのサービスを再起動します。
+
+次のように`psql`コマンドを`ubuntu`ユーザーで実行し、さきほど設定したパスワードでPostgreSQLのプロンプトに入れたら準備完了です。
+（※注：本来はデータベース操作用のユーザーを作成しますが、簡単のためこのような設定で進めます。）
+
+```
+$ psql -U postgres
+Password for user postgres:
+psql (14.9 (Ubuntu 14.9-0ubuntu0.22.04.1))
+Type "help" for help.
+
+postgres=#
+```
+
+### データベースの準備
+
+次にデータベースを作成します。データベースの名前は、`placeplateau`にします。
+
+```
+postgres=# create database placeplateau;
+postgres=# \c placeplateau
+```
+
+PostGISを有効にします。
+
+```
+placeplateau=# CREATE EXTENSION postgis; CREATE EXTENSION postgis_topology;
+```
+
+アプリ用のテーブルを作ります。
+
+```
+placeplateau=# create table placedata (
+  id SERIAL PRIMARY KEY,
+  userid VARCHAR(255) NOT NULL,
+  side INTEGER NOT NULL,
+  created_at TIMESTAMP NOT NULL,
+  geom GEOMETRY(POLYGON,4326) NOT NULL,
+  area REAL NOT NULL);
+```
+
+### Webアプリケーションプログラムの作成
+
+Python3とその周辺環境をインストールします。
+
+```
+$ sudo apt install python3 python3-pip python3-venv nginx
+```
 
 
-    1  sudo apt update
-    2  sudo apt upgrade
-    5  sudo apt install postgresql postgis
 
-~$ sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'passwd';"
  sudo -u postgres psql
 
 postgres=# create database nurinuriplateau;
@@ -274,13 +355,13 @@ INSERT 0 1
 nurinuriplateau=# SELECT * FROM main;
 
 
-create table main (
+create table placedata (
   id SERIAL PRIMARY KEY,
-  userid STRING
-  side INTEGER
-  date DATETIME
-  geom GEOMETRY(POLYGON,4326),
-  area REAL);
+  userid VARCHAR(255) NOT NULL,
+  side INTEGER NOT NULL,
+  created_at TIMESTAMP NOT NULL,
+  geom GEOMETRY(POLYGON,4326) NOT NULL,
+  area REAL NOT NULL);
 
 
 nurinuriplateau=> SELECT ST_Area(ST_GeomFromText('POLYGON((0 0, 0 1.1, 1.1 1.1, 1.1 0, 0 0))',4326)::geography);
@@ -290,6 +371,10 @@ nurinuriplateau=> SELECT ST_Area(ST_GeomFromText('POLYGON((0 0, 0 1.1, 1.1 1.1, 
 (1 row)
 
 
+Python・Flaskで作るかな
+送信可能なAPIをまず作る
+デプロイ先はAWSにしよう
+スキーマの決定
 
 
 ### サーバーへの位置情報の送信

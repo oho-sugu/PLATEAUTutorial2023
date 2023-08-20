@@ -136,7 +136,7 @@ PostgreSQLの例　R-Tree
 
 ### 空間ID
 
-空間分割や空間インデックスで計算されたIDをベースとした空間IDという考え方があります。
+空間分割や空間インデックスのデータ構造をもとにして計算されたIDをつかった空間IDという考え方があります。
 
 Google MapsのWebメルカトルやデジ庁の空間IDにつなげる
 What3words　https://what3words.com/ja/about
