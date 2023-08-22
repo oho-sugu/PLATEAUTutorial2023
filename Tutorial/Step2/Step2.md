@@ -215,7 +215,7 @@ FirebaseなどのMBaaSや、Photonなどのリアルタイム通信基盤など�
 
 ### サーバーの準備
 
-AWSでEC2インスタンスを立ち上げます。AWSを使うにはアカウントの登録が必要です。今回は無料枠の範囲内でできるように構成していますが、設定のミスなどで予想外の金額が請求されることもあります。アカウントの2段階認証を設定するなど、セキュリティなどには十分気を付けてください。
+AWSでEC2インスタンスを立ち上げます。AWSを使うにはアカウントの登録が必要です。今回は無料枠の範囲内でできるように構成していますが、設定のミスなどで予想外の金額が請求されることもあります。アカウントの2段階認証を設定するなど、セキュリティにも十分気を付けてください。
 また、本項はある程度AWSを使い慣れている前提で進めます。分からないことがある場合はAWSのドキュメントなどを参照してください。
 
 また、内容の中にセキュリティの側面などで本番環境で動作させるには適さない部分があります。本項のアプリはあくまでも解説用のサンプルということで、実際のサービスなどを構築していく際には十分考慮してください。
@@ -335,7 +335,7 @@ from datetime import datetime,date
 import json
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost/placeplateau'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:passwd@localhost/placeplateau'
 db = SQLAlchemy(app)
 
 class PlaceData(db.Model):
