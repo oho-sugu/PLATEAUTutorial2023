@@ -179,7 +179,7 @@ Mesh CombinerはAsset Storeで入手し、プロジェクトにインストー�
 
 ![Mesh Combinerでメッシュを結合する](image-21.png)
 
-
+TODO Paintin3Dの設定
 
 ただ、PLATEAUの3D都市モデルは巨大なので、どうしてもテクスチャの解像度を上げるのが難しい場合があります。そこで、表現を工夫することで、
 
