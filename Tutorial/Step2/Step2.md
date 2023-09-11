@@ -495,7 +495,7 @@ SELECT　でArea計算
 
 ### AppStoreに出す
 
-
+JWTでのトークン認証
 
 
 //////　以下メモ
