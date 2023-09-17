@@ -146,7 +146,7 @@ Unity Package Managerを開き、左上の＋ボタンから「Add Package from 
 
 ![3D都市モデルがシーンに読み込まれたところ。](image-15.png)
 
-### Paint in 3Dを導入し、PLATEAUに印を塗れるようにする
+### Paint in 3Dを導入し、PLATEAUを塗れるようにする
 
 ここまでがゲーム開発の基本となる準備となります。ここからPLATEAUを使ったゲームロジックを実装します。
 最初に、ARでPLATEAUの3D都市モデルに弾を発射すると、ビルに印が塗られる仕組みを作ってみます。Unity Asset Storeで[「Paint in 3D」](https://assetstore.unity.com/packages/tools/painting/paint-in-3d-26286?locale=ja-JP)というアセットを購入($66)し使用します。
@@ -266,9 +266,59 @@ Editor上で実行すると、マウスでクリックすると3D都市モデル
 
 ![実行例](image-38.png)
 
-### 塗った場所の位置座標を計算する
+### Geospatial Anchorで3Dモデルの位置を指定する
 
-GeospatialでWorld座標から緯度経度にする
+詳細は[公式ドキュメント](https://developers.google.com/ar/develop/unity-arf/geospatial/anchors?hl=ja)や、PLATEAUのLerningコンテンツの[Topic 14-3](https://www.mlit.go.jp/plateau/learning/tpc14-3/)内、「14.3.3 PLATEAUの3D都市モデルの読み込み」を参照してください。
+作成した3Dモデルの親要素にGeospatialAPIの地理空間アンカーを利用して位置合わせを行う以下のスクリプトを追加します。
+
+``` Anchor.cs
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.XR.ARFoundation;
+using UnityEngine.XR.ARSubsystems;
+using Google.XR.ARCoreExtensions;
+
+public class Anchor : MonoBehaviour
+{
+    public AREarthManager EarthManager;
+    public ARAnchorManager AnchorManager;
+
+    public double lat, lon, height;
+
+    private bool _isInitialized = false;
+
+    // Update is called once per frame
+    void Update()
+    {
+        // isInitializedフラグを見て、初回1回だけ実行
+        if (!_isInitialized && EarthManager.EarthTrackingState == TrackingState.Tracking)
+        {
+            // 緯度35.731038475、経度139.72869019
+            // 高さ37.1621mのアンカーを作る
+            var anchor = AnchorManager.AddAnchor(
+                lat,
+                lon,
+                height,
+                Quaternion.identity
+                );
+            // このアンカーを親として設定する
+            // そうすることで配下のオブジェクトは、設定した地理座標の位置に配置される。
+            gameObject.transform.parent = anchor.transform;
+            _isInitialized = true;
+        }
+    }
+}
+```
+
+読み込んだPLATEAUの3DモデルのSDKが表示する緯度経度を参照して、Anchor.csの緯度経度と高さを設定します。地理空間アンカーでは高さは楕円体高なので、[国土地理院のサイト](https://vldb.gsi.go.jp/sokuchi/surveycalc/geoid/calcgh/calcframe.html)などを参考にしてジオイド高を加味した楕円体高を設定してください。
+
+![緯度経度などの確認](image-40.png)
+
+図のように、緯度経度高さを設定します。また、AR Session Originの参照をEarth ManagerとAnchor Managerに追加します。
+さらに、AR Session Originの子要素に移動しておきます。
+
+![Anchor.csに座標を設定](image-41.png)
 
 ## サーバーに位置情報を送る
 
@@ -570,13 +620,18 @@ uwsgi.confに以下の内容を記載します。
 
 ```uwsgi.conf
 server {
-    listen    80;
+    listen    443 ssl;
+    ssl_certificate         ※SSL証明書へのパス;
+    ssl_certificate_key     ※SSL秘密鍵へのパス;
+    server_name ※サーバーのドメイン名;
     location / {
         include uwsgi_params;
         uwsgi_pass unix:///tmp/uwsgi.sock;
     }
 }
 ```
+
+ドメイン名の取得は有料になることが多くなります。SSL証明書は、テスト用と割り切るならLet’s Encryptなどを使って取得してもよいでしょう。
 
 ここまでできたら、nginxを再起動します。
 
@@ -590,18 +645,19 @@ $ sudo service nginx restart
 $ uwsgi --ini app.ini
 ```
 
-EC2のインスタンスの情報から、パブリックIPv4アドレスを確認し、ブラウザでアクセスするなどでサーバーの動作を確認できます。
+ブラウザにURLを入力することで、アクセスの確認ができます。
 
 ![ブラウザでアクセスしたところ](image-39.png)
 
 ```
 ※ドメイン取得やSSLについて
-ここまでの手順ではHTTPでの直接IPアドレスを指定したアクセスで検証しています。
-実際のサービスを運用するためには、SSLを使ったアクセスや、正式にドメインを取得しての様々な設定などが必要ですが、
-有料の契約を含むことなど本項の内容を超えるので、ここでは説明しません。
+Unityでは、デフォルトではAndroidやiOSでビルドした場合、httpでのアクセスを制限しています。これは、プラットフォームの制限になります。
+ここまでの手順では既にドメインや証明書がある前提で検証しています。
+実際のサービスを運用するためには、SSLを使ったアクセスや、正式にドメインを取得しての様々な設定などが必要ですが、本項の内容を超えるので、ここでは説明しません。
+また、サーバーでのサービスの自動起動にも触れません。
 ```
 
-
+<!--
 メモ
 ドメインの確保どうしようか…例として進める分には自分が持ってるドメインを使えばいいけど…
 無料ではできんよなぁ。無料のDDNSとかでやれるかなぁ？
@@ -670,9 +726,23 @@ Python・Flaskで作るかな
 送信可能なAPIをまず作る
 デプロイ先はAWSにしよう
 スキーマの決定
-
+-->
 
 ### サーバーへの位置情報の送信
+
+ここまででサーバーのAPIができました。
+次にUnityのクライアントプログラムと連携させます。
+まずはUnityクライアント側のプログラムを作成します。
+
+
+
+### 塗った場所の位置座標を計算する
+
+
+
+GeospatialでWorld座標から緯度経度にする
+
+
 UnityWebRequest
 APIに合わせてリクエスト
 ループを閉じたときにまとめてリクエスト
@@ -682,23 +752,106 @@ DBに、ID（AutoInc）、時刻、ユーザーのUUID、Geomを格納
 トランザクション忘れるな
 
 ### サーバーでの面積の計算
-PostGISのクエリでSQLで計算してみる
-SELECT　でArea計算
 
-### サーバーで塗った場所の表示
-これはQGISで直接DBにアクセスしてやろうかな
-それが一番楽そう
+ここまでで、Unityアプリとサーバーで情報を連携させることができました。
+アプリから作成した地理情報はPostGISに記録されるので、PostGISの機能を使った処理が可能です。ここでは、簡単なクエリを実行して面積の計算をしてみます。
 
-### 正確な面積計算のプログラム
-データ分析の文脈でこの辺をQGIS？あたりを使いながら説明
+サーバーにSSHでログインして、psqlコマンドを実行し、PostgreSQLのコンソールに入ります。`\c`を使ってデータベースを選択します。
+
+```
+$ psql -U postgres
+...
+postgres=#
+postgres=# \c placeplateau
+```
+
+次のクエリを実行します。各エリアの面積(㎡)が計算されます。
+
+```
+SELECT *, ST_Area(Geography(ST_Transform(geom,4326))) FROM placedata;
+```
+
+SQLの機能をもっと使って集計してみましょう。次のクエリを実行し、陣営単位で面積を集計します。
+
+```
+placeplateau=# SELECT side, sum(ST_Area(Geography(ST_Transform(geom,4326)))) FROM placedata GROUP BY side;
+ side |        sum
+------+--------------------
+    0 | 1360.2750182356685
+    1 |  1773.828494577203
+(2 rows)
+```
+
+さらに、陣営・ユーザー単位で面積を集計します。
+
+```
+placeplateau=# SELECT side,userid, sum(ST_Area(Geography(ST_Transform(geom,4326)))) FROM placedata GROUP BY side,userid;
+ side | userid |         sum
+------+--------+----------------------
+    0 | test   |   1320.7396999783814
+    0 | test3  |   39.535318257287145
+    1 | test2  |   1773.8014401495457
+    1 | test4  | 0.027054427657276392
+(4 rows)
+```
+
+このように、アプリで作成したデータをSQLで自由自在に分析することができます。データベースを適切に設計すれば、さらに様々な活用ができます。
+
+### QGISで塗った場所の表示
+
+QGISはPostGISに接続する機能があります。
+サーバーのPostGISに接続して地図上に表示してみます。
+
+サーバー上で動作しているPostgreSQLには、作業中のPCから直接つなぐことができません。
+そこで、SSHのトンネリングを利用して接続します。次のコマンドを実行すると、`-L`オプションで、手元のPCの63333ポートがサーバーの5432ポートとトンネリングされ、手元PCの63333ポートにアクセスすることでサーバー側のPostgreSQLの5432ポートとやり取りできるようになります。
+
+※例はコマンドで示しますが、任意のSSHクライアントアプリで同様の設定をできます。
+
+```
+$ ssh -i ~/.ssh/SSH鍵ファイル -L 63333:localhost:5432 ubuntu@サーバーアドレス
+```
+
+SSHで接続したらQGISを起動し、新規プロジェクトを作成します。
+
+作成したら、XYZレイヤを追加でOpen Street Mapなどのベースマップを追加します。
+
+![XYZレイヤを追加](image-42.png)
+
+![OSM追加](image-43.png)
+
+PostGISへの接続を設定します。「PostGISレイヤを追加」を選択します。
+
+![PostGIS追加](image-44.png)
+
+図のように、さきほどSSHで設定したポート番号などを設定します。
+
+![PostGIS設定](image-45.png)
+
+「OK」を押すと、認証情報を入力するダイアログが開くので、ユーザー名に「postgres」パスワードに設定したパスワードをいれて「OK」を押します。
+
+![認証情報の入力](image-46.png)
+
+「接続」を押すと、接続できるテーブルが表示されるので、選択して「追加」を押します。
+
+![テーブルの選択](image-47.png)
+
+これで地図上に、PostGISの地理情報が表示されました。
+
+![表示されたところ](image-48.png)
+
+このデータはQGIS上で通常のベクターデータと同様に扱い、編集や分析が可能です。
 
 ### コラム　チート対策
 
-地理情報を扱ううえでのチート対策など
+地理情報を扱うアプリ、とくにゲームなどでは、チート対策が重要になります。
+しかし、スマホのアプリではGPS座標を詐称するようなツールもあり、地理情報のチート対策は簡単ではありません。
+たとえば、現実にはあり得ないスピードで移動した場合を判定することや、システム側に現実的に侵入不可能な場所の地図を持っておいて、異常な場所にいないか判定するなどの方法がありますが、確実にチートを判定することは困難です。
+そのため、継続的にデータを取得しておき、統計的に怪しそうな挙動をフィルタリングするなどの後手の対策が主となります。
+また、取得できる報酬の上限を決めておくなどの対策も必要となります。
 
 ### コラム　プライバシーについて
 
-地理情報は個人情報であることの説明
+チート対策ともかかわりますが、個人に紐づく地理情報は個人情報となります。他人に見られないように管理すること、匿名化して統計処理することなど、取り扱いに注意すること、プライバシーポリシーの提示や取得する情報の利用目的などの明確化など、一般的な個人情報と同様な取り扱いを気を付ける必要があります。
 
 ## アプリとしてリリースする
 

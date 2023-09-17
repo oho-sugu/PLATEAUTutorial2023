@@ -43,7 +43,7 @@ def hello():
 @app.route('/getarea')
 def getArea():
     today = date.today()
-    placedatas = db.session.query(PlaceData).where(PlaceData.created_at >= func.date(func.now())).order_by(PlaceData.id)
+    placedatas = db.session.query(PlaceData).filter(PlaceData.created_at >= func.date(func.now())).order_by(PlaceData.id)
     datas = []
     for placedata in placedatas:
         print(placedata.id)
