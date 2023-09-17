@@ -657,99 +657,217 @@ Unityでは、デフォルトではAndroidやiOSでビルドした場合、http�
 また、サーバーでのサービスの自動起動にも触れません。
 ```
 
-<!--
-メモ
-ドメインの確保どうしようか…例として進める分には自分が持ってるドメインを使えばいいけど…
-無料ではできんよなぁ。無料のDDNSとかでやれるかなぁ？
-
- sudo -u postgres psql
-
-postgres=# create database nurinuriplateau;
-CREATE DATABASE
-postgres=# \c nurinuriplateau
-You are now connected to database "nurinuriplateau" as user "postgres".
-nurinuriplateau=# CREATE EXTENSION postgis; CREATE EXTENSION postgis_topology;
-CREATE EXTENSION
-CREATE EXTENSION
-nurinuriplateau=#
-nurinuriplateau=# \q
-
-
-postgres=#
-postgres=# \c nurinuriplateau
-You are now connected to database "nurinuriplateau" as user "postgres".
-nurinuriplateau=# create table main (
-nurinuriplateau(#   id SERIAL PRIMARY KEY,
-nurinuriplateau(#   geom GEOMETRY(POLYGON,4326),
-nurinuriplateau(#   area REAL);
-CREATE TABLE
-nurinuriplateau=# INSERT INTO main (geom, area) VALUES (
-nurinuriplateau(# ST_GeomFromText('POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))', 4326),
-nurinuriplateau(# ST_Area(ST_GeomFromText('POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))', 4326)));
-INSERT 0 1
-nurinuriplateau=# SELECT * FROM main;
-nurinuriplateau=# \q
-ubuntu@ip-172-31-17-190:~$ sudo -u postgres psql
-could not change directory to "/home/ubuntu": Permission denied
-psql (14.8 (Ubuntu 14.8-0ubuntu0.22.04.1))
-Type "help" for help.
-
-postgres=# \c nurinuriplateau
-You are now connected to database "nurinuriplateau" as user "postgres".
-nurinuriplateau=# SELECT * FROM main;
-nurinuriplateau=# INSERT INTO main (geom, area) VALUES (
-ST_GeomFromText('POLYGON((0 0, 0 1.1, 1.1 1.1, 1.1 0, 0 0))', 4326),
-ST_Area(ST_GeomFromText('POLYGON((0 0, 0 1.1, 1.1 1.1, 1.1 0, 0 0))', 4326)));
-INSERT 0 1
-nurinuriplateau=# SELECT * FROM main;
-
-
-create table placedata (
-  id SERIAL PRIMARY KEY,
-  userid VARCHAR(255) NOT NULL,
-  side INTEGER NOT NULL,
-  created_at TIMESTAMP NOT NULL,
-  geom GEOMETRY(POLYGON,4326) NOT NULL,
-  area REAL NOT NULL);
-
-
-nurinuriplateau=> SELECT ST_Area(ST_GeomFromText('POLYGON((0 0, 0 1.1, 1.1 1.1, 1.1 0, 0 0))',4326)::geography);
-      st_area
-
---------------------
-
- 14893547154.626783
-(1 row)
-
-
-Python・Flaskで作るかな
-送信可能なAPIをまず作る
-デプロイ先はAWSにしよう
-スキーマの決定
--->
-
 ### サーバーへの位置情報の送信
 
 ここまででサーバーのAPIができました。
 次にUnityのクライアントプログラムと連携させます。
 まずはUnityクライアント側のプログラムを作成します。
 
+Paint in 3Dでは、`IHitPoint`を継承したクラスを作成し、`HandleHitPoint`を実装することで、塗った場所の座標を取得できます。これを使いサーバーへ位置情報を送信する機能を作成したのが次のプログラムです。これを`P3DHitScreen`と同じゲームオブジェクトに追加します。
 
+```GepPaintManager.cs
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.Networking;
+using PaintIn3D;
+using Google.XR.ARCoreExtensions;
+using System.Text;
+using Newtonsoft.Json;
 
-### 塗った場所の位置座標を計算する
+public class GeoPaintManager : MonoBehaviour, IHitPoint
+{
+    private List<GameObject> polygons = new List<GameObject>();
+    private int lastid = 0;
+    private int side = 0;
+    private string userid = "test";
 
+    private List<GeoPoint> tempPolygon = new List<GeoPoint>();
+    private Vector3 firstPoint;
+    private bool isFirst = true;
 
+    private bool isInitialized = false;
 
-GeospatialでWorld座標から緯度経度にする
+    public AREarthManager arEarthManager;
+    public Transform arOrigin;
+    public Transform arcam;
 
+    public GameObject polygonLineRender;
+    public GameObject areaParent;
 
-UnityWebRequest
-APIに合わせてリクエスト
-ループを閉じたときにまとめてリクエスト
-ユーザーが受け取っている最後のIDも送る
-DBに、ID（AutoInc）、時刻、ユーザーのUUID、Geomを格納
-ユーザーが受け取っていないIDの時刻内のGeomと面積の集計を返却する
-トランザクション忘れるな
+    private const float DISTTHR = 10;
+    private const float POLYGON_HEIGHT = 40;
+
+    private const string url = "https://placeplateau.ortv.tech/";
+
+    public void HandleHitPoint(bool preview, int priority, float pressure, int seed, Vector3 position, Quaternion rotation)
+    {
+        if (!preview)
+        {
+            Debug.Log("HitDetect Pos " + position + "Rot " + rotation);
+
+            if (arEarthManager.EarthTrackingState == UnityEngine.XR.ARSubsystems.TrackingState.Tracking)
+            {
+                Pose p = new Pose(position, rotation);
+                GeospatialPose geoPose = arEarthManager.Convert(p);
+                Debug.Log(geoPose);
+
+                if (isFirst)
+                {
+                    firstPoint = position;
+                    tempPolygon.Add(new GeoPoint(geoPose.Latitude, geoPose.Longitude));
+                    isFirst = false;
+                }
+                else if (tempPolygon.Count > 2 && Vector3.Distance(firstPoint, position) < DISTTHR)
+                {
+                    // Loop Close
+                    StringBuilder sb = new StringBuilder();
+                    foreach (GeoPoint gp in tempPolygon)
+                    {
+                        sb.Append($"{gp.lon} {gp.lat},");
+                    }
+                    GeoPoint fpgp = tempPolygon[0];
+                    sb.Append($"{fpgp.lon} {fpgp.lat}");
+                    string wkt = sb.ToString();
+
+                    string reqjson = $"{{\"lastid\":\"{lastid}\",\"userid\":\"{userid}\",\"side\":\"{side}\",\"newarea\":\"POLYGON(({wkt}))\"}}";
+
+                    StartCoroutine(SendNewArea(reqjson));
+
+                    tempPolygon.Clear();
+                    isFirst = true;
+                }
+                else
+                {
+                    tempPolygon.Add(new GeoPoint(geoPose.Latitude, geoPose.Longitude));
+                }
+            }
+        }
+    }
+
+    IEnumerator SendNewArea(string json)
+    {
+        UnityWebRequest req = new UnityWebRequest(url + "makearea", "POST");
+        byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(json);
+        req.uploadHandler = (UploadHandler)new UploadHandlerRaw(bodyRaw);
+        req.downloadHandler = (DownloadHandler)new DownloadHandlerBuffer();
+        req.SetRequestHeader("Content-Type", "application/json");
+
+        yield return req.SendWebRequest();
+
+        if (req.result == UnityWebRequest.Result.Success)
+        {
+            Debug.Log(req.downloadHandler.text);
+            ParseRecord(req.downloadHandler.text);
+        }
+        else
+        {
+            Debug.LogError("Error sending POST request: " + req.error);
+        }
+    }
+
+    IEnumerator GetArea()
+    {
+        UnityWebRequest req = new UnityWebRequest(url + "getarea", "GET");
+        req.downloadHandler = (DownloadHandler)new DownloadHandlerBuffer();
+
+        yield return req.SendWebRequest();
+
+        if (req.result == UnityWebRequest.Result.Success)
+        {
+            Debug.Log(req.downloadHandler.text);
+            ParseRecord(req.downloadHandler.text);
+        }
+        else
+        {
+            Debug.LogError("Error sending POST request: " + req.error);
+        }
+    }
+
+    void ParseRecord(string json)
+    {
+        List<Record> records = JsonConvert.DeserializeObject<List<Record>>(json);
+        foreach (Record record in records)
+        {
+            var points = new List<Vector3>();
+            string geom = record.geom.Replace("POLYGON ((", "").Replace("))", "");
+
+            foreach (string coord in geom.Split(","))
+            {
+                var tokens = coord.Trim().Split(" ");
+                double x = double.Parse(tokens[0].Trim());
+                double y = double.Parse(tokens[1].Trim());
+                GeospatialPose geoPose = new GeospatialPose();
+                geoPose.Latitude = y;
+                geoPose.Longitude = x;
+                geoPose.Altitude = POLYGON_HEIGHT;
+                geoPose.Heading = 0;
+                geoPose.EunRotation = Quaternion.identity;
+                Pose pose = arEarthManager.Convert(geoPose);
+                points.Add(pose.position);
+            }
+            GameObject polygon = Instantiate(polygonLineRender, areaParent.transform);
+            var linerenderer = polygon.GetComponent<LineRenderer>();
+            linerenderer.SetPositions(points.ToArray());
+            linerenderer.positionCount = points.Count;
+
+            if(record.id > lastid)
+            {
+                lastid = record.id;
+            }
+        }
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        if(!isInitialized && arEarthManager.EarthTrackingState == UnityEngine.XR.ARSubsystems.TrackingState.Tracking)
+        {
+            isInitialized = true;
+            StartCoroutine(GetArea());
+        }
+    }
+}
+
+public struct GeoPoint
+{
+    public double lat, lon;
+
+    public GeoPoint(double lat, double lon)
+    {
+        this.lat = lat;
+        this.lon = lon;
+    }
+}
+
+public class GeoPolygon
+{
+    public List<GeoPoint> polygon = new List<GeoPoint>();
+    public int side;
+}
+
+[JsonObject(MemberSerialization.OptIn)]
+public class Record
+{
+    [JsonProperty]
+    public int id { get; set; }
+    [JsonProperty]
+    public string userid { get; set; }
+    [JsonProperty]
+    public int side { get; set; }
+    [JsonProperty]
+    public string created_at { get; set; }
+    [JsonProperty]
+    public string geom { get; set; }
+}
+```
+
+AREarthManagerのConvertメソッドで、Unity座標と地理座標の相互の変換ができます。
+
+APIとのやり取りは、UnityWebRequestを使いJSON形式で送受信しています。
+JSON.Netを使っていますので、別途Unity Package Managerでインストールしておきます。
+
+APIへのデータ送信のタイミングは、始点から閾値距離内の点を塗ったときに閉じたと判定して行っています。
 
 ### サーバーでの面積の計算
 
