@@ -179,16 +179,92 @@ Mesh CombinerはAsset Storeで入手し、プロジェクトにインストー�
 
 ![Mesh Combinerでメッシュを結合する](image-21.png)
 
-TODO Paintin3Dの設定
+Paint in 3Dは、モデルのUV座標に基づいて、テクスチャのどこにペイントするかを判定します。そのため、モデルに正しくUV座標が設定されていないとおかしな描画になってしまいます。Mesh CombinerでUVは自動的に生成されていますが、現状のMesh Combinerで結合したメッシュだと、UV座標がUV1に入っています。これをPaint in 3Dの機能を使って、UV0にコピーします。
 
-ただ、PLATEAUの3D都市モデルは巨大なので、どうしてもテクスチャの解像度を上げるのが難しい場合があります。そこで、表現を工夫することで、
+一度FBXに変換するために、「FBX Exporter」をUnity Package Managerからインストールしておきます。Hierarchyのモデルを選択して右クリックし「Export to FBX...」を選択します。
 
+![FBXでExport](image-27.png)
 
+図のように設定して「Export」を押します。
 
-PLATEAUモデルの準備　Mesh Combiner
-UV1の設定
-マテリアル
-Decalで塗るのを作成
+![FBX Exportの設定](image-28.png)
+
+指定したフォルダにFBXとして書き出され、プロジェクトの方に表示されます。
+ここで、FBXの階層を開いてMeshのInspectorを表示し、右側のメニューを開くと、「Coord Copier(Paint in 3D)」があるのでこれを選択します。
+
+![Coord Copierを開く](image-29.png)
+
+図のような設定で「Generate」ボタンを押します。
+
+![Coord Copier設定](image-30.png)
+
+すると、UV1の内容をUV0にコピーしたメッシュが新しく作成されます。
+
+![Coord Copierによって作成された新しいメッシュ](image-31.png)
+
+これを、元のメッシュの代わりに3D都市モデルのMesh FilterのMeshに設定します。
+
+![新しいメッシュの設定](image-32.png)
+
+これで、Paint in 3D用に変換されたメッシュの準備ができました。
+
+さらに、ペイントの衝突判定用にMesh Colliderを追加します。
+
+![Mesh Colliderの追加](image-26.png)
+
+次に、Paint in 3Dで建物をペイントできるように設定します。
+結合したメッシュを選択し、InspectorのMesh Rendererの右肩のメニューボタンからメニューを開き、「Make Paintable(Paint in 3D)」を選択します。これで、Paint in 3Dのペイント対象になります。
+
+![メニューからMake Paintableを選択](image-23.png)
+
+P3D Paintableコンポーネントのボタンで、「Add Material Cloner」と「Add Paintable Texture」を押下し、それぞれのコンポーネントも追加しておきます。
+
+![P3D Paintable、P3D Material Cloner、P3D Paintable Textureを追加](image-24.png)
+
+P3D Paintable Textureの設定を図のように変更します。Sizeを2048x2048に、ColorをR:0,G:0,B:0,A:0にしています。これでAR表示したときに、塗られていないところは完全な透過となります。
+
+![P3D Paintable Textureの設定変更](image-33.png)
+
+Paint in 3Dは、モデルのテクスチャにペイントした結果を描画しますが、表示のための専用のペイント用のマテリアルを作ります。（Paint in 3Dが自動的に実行時にコピーしてくれるので、このマテリアルは一つ作成してすべての3D都市モデルで共有することができます。）
+適当なフォルダーにマテリアルを新規に作り、シェーダーを「Paint in 3D/Overlay」にします。
+
+![マテリアルの設定](image-25.png)
+
+このマテリアルを建物モデルに適用します。
+
+なお、P3D Paintableの「Analyze Mesh」ボタンを押すと、現在のメッシュのUV座標を確認できます。
+図のように、CoordにUV0を指定した状態で、矩形が多く並んだような状態になっていれば、ここまでの手順で正しく変換されていると考えられます。
+
+![Analyze Mesh](image-34.png)
+
+以上のモデルの設定を分割した全てのモデルに対して行います。
+
+```
+このように、ゲームエンジンでPLATEAUの3D都市モデルを表示する以上の活用をしようとすると、ゲームエンジンの様々な機能の活用やその仕組みの理解が必要になります。
+また適切に3D都市モデルのデータを変換や調整していくことも必要になります。
+幸いにも、UnityやUnreal Engineでは、公式非公式問わず様々な入門コンテンツやサンプルが充実しています。一歩進んだ応用を目指して活用してみましょう。
+```
+
+最後に、Paint in 3Dの描画を制御するコンポーネントを追加します。
+Hierarchyで、空のゲームオブジェクトを一つ追加し、「P3D Hit Screen」コンポーネントと「P3D Paint Sphere」コンポーネントを追加します。それぞれのコンポーネントは図のように設定してください。
+
+![ペイントの管理オブジェクトの設定](image-36.png)
+
+さらに、「P3D Pointer Mouse」と「P3D Pointer Touch」を追加します。これらはデフォルトの設定で構いません。
+
+![MouseとTouchの有効化](image-37.png)
+
+ここまでで、建物をペイントする仕組みができました。
+
+```
+PLATEAUの3D都市モデルは巨大なので、どうしてもテクスチャの解像度を上げるのが難しい場合があります。
+そこで、ドット絵風など表現を工夫することも考えられます。
+その際には、「P3D Paintable Texture」の「Advanced/Filter」の設定を「Point」に変えるとドット絵がくっきり見えるようになります。
+```
+
+Editor上で実行すると、マウスでクリックすると3D都市モデルにペイントできるようになっています。
+
+![実行例](image-38.png)
 
 ### 塗った場所の位置座標を計算する
 
@@ -238,7 +314,7 @@ $ sudo apt install postgresql postgis
 まずログインできるようにパスワードを設定します。
 
 ```
-$ sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'passwd';"
+$ sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'password';"
 ```
 
 このままだと、PostgreSQLのPeer認証になっているので、postgresユーザーしかアクセスできません。この後の作業に不便なので、Peer認証を変更します。以下のコマンドでPostgreSQLの設定ファイルを開きます。
@@ -248,24 +324,28 @@ $ sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'passwd';"
 $ sudo nano /etc/postgresql/14/main/pg_hba.conf
 ```
 
+この行を
+
 ```
 # Database administrative login by Unix domain socket
 local   all             postgres                                peer
 ```
-この行を
+
+このように変えて保存します。
+
 ```
 # Database administrative login by Unix domain socket
 local   all             postgres                                scram-sha-256
 ```
-このように変えて保存します。
+
+PostgreSQLのサービスを再起動します。
 
 ```
 $ sudo service postgresql restart
 ```
-PostgreSQLのサービスを再起動します。
 
 次のように`psql`コマンドを`ubuntu`ユーザーで実行し、さきほど設定したパスワードでPostgreSQLのプロンプトに入れたら準備完了です。
-（※注：本来はデータベース操作用のユーザーを作成しますが、簡単のためこのような設定で進めます。）
+（※注：本来はデータベース操作用の権限を絞ったユーザーを作成しますが、簡単のためこのような設定で進めます。）
 
 ```
 $ psql -U postgres
@@ -279,6 +359,7 @@ postgres=#
 ### データベースの準備
 
 次にデータベースを作成します。データベースの名前は、`placeplateau`にします。
+PostgreSQLの詳しい使い方は公式ドキュメントなどを参考にしてください。
 
 ```
 postgres=# create database placeplateau;
@@ -299,19 +380,19 @@ placeplateau=# create table placedata (
   userid VARCHAR(255) NOT NULL,
   side INTEGER NOT NULL,
   created_at TIMESTAMP NOT NULL,
-  geom GEOMETRY(POLYGON,4326) NOT NULL,
-  area REAL NOT NULL);
+  geom GEOMETRY(POLYGON,4326) NOT NULL);
 ```
 
 ### Webアプリケーションプログラムの作成
 
-Python3とその周辺環境をインストールします。wsgi経由でnginxをWebサーバーに使います。
+Python3とその周辺環境をインストールします。uwsgi経由でnginxをWebサーバーに使います。
 
 ```
 $ sudo apt install python3 python3-pip python3-venv nginx
 ```
 
 Pythonのvenvを設定しFlaskと必要なライブラリをインストールします。
+作業用のディレクトリは、自分のホーム直下の`placeplateau_web`とします。
 
 ```
 $ sudo apt install libpq-dev
@@ -321,23 +402,27 @@ $ pwd
 /home/ubuntu/placeplateau_web
 $ python3 -m venv venv
 $ source venv/bin/activate
-(venv) $ pip install Flask uwsgi geoalchemy2 flask_sqlalchemy psycopg2 geoalchemy2[shapely]
+(venv) $ pip install Flask uwsgi geoalchemy2 flask_sqlalchemy psycopg2 geoalchemy2[shapely] pyjwt cryptography
 ```
 
 次のPythonプログラムをエディタなどで作成します。
 
 ``` app.py
-from flask import Flask
+from flask import Flask,request
 from flask_sqlalchemy import SQLAlchemy
 from geoalchemy2 import Geometry
 from geoalchemy2.shape import to_shape
-from datetime import datetime,date
+from datetime import datetime,date,timedelta
+from sqlalchemy.sql import func, and_
 import json
+import jwt
+import time
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:passwd@localhost/placeplateau'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost/placeplateau'
 db = SQLAlchemy(app)
 
+# テーブルのスキーマ定義
 class PlaceData(db.Model):
     __tablename__ = 'placedata'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -345,38 +430,45 @@ class PlaceData(db.Model):
     side = db.Column(db.Integer)
     created_at = db.Column(db.Time)
     geom = db.Column(Geometry('POLYGON'))
-    area = db.Column(db.Float(5,False,3))
 
     def getdict(self):
         return {"id":self.id,
                 "userid":self.userid,
                 "side":self.side,
                 "created_at":str(self.created_at),
-                "geom":to_shape(self.geom).wkt,
-                "area":self.area}
+                "geom":to_shape(self.geom).wkt}
 
+# 動作確認　テスト用
 @app.route('/')
 def hello():
     return 'PlacePLATEAU API SERVER'
 
+# 当日のデータ取得
 @app.route('/getarea')
 def getArea():
     today = date.today()
-    placedatas = db.session.query(PlaceData).where(PlaceData.created_at >= today).order_by(PlaceData.id)
+    placedatas = db.session.query(PlaceData).where(PlaceData.created_at >= func.date(func.now())).order_by(PlaceData.id)
     datas = []
     for placedata in placedatas:
         print(placedata.id)
         datas.append(placedata.getdict())
     return json.dumps(datas)
 
+# 新しい領域の作成と未読データの取得
 @app.route('/makearea', methods=['POST'])
 def makeArea():
     data = request.json
 
     lastid=data['lastid']
-    newarea=data['newarea']
+    userid=data['userid']
+    side=data['side']
+    newareaWKT=data['newarea']
 
-    placedatas = db.session.query(PlaceData).where(PlaceData.created_at >= today).order_by(PlaceData.id)
+    newarea = PlaceData(userid=userid, created_at=func.now(),side=side, geom=newareaWKT)
+    db.session.add(newarea)
+    db.session.commit()
+
+    placedatas = db.session.query(PlaceData).filter(and_(PlaceData.created_at >= func.date(func.now()),PlaceData.id >= lastid)).order_by(PlaceData.id)
     datas = []
     for placedata in placedatas:
         print(placedata.id)
@@ -387,7 +479,127 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0')
 ```
 
+PostgreSQLにデータを記録しているところを説明します。
+WebフレームワークはFlaskを使用しています。FlaskはPythonの軽量なWebフレームワークで、例のように各URLに対する処理をメソッドとして記述することでWebサーバーとして動作します。
 
+ORMとして、[SQLAlchemy](https://www.sqlalchemy.org)に[GeoAlchemy](https://geoalchemy-2.readthedocs.io/en/latest/)という地理情報拡張を組み合わせて使っています。
+
+スキーマ定義で、Geometry型を使うことで、PostGISの地理情報型を利用できます。
+
+```
+# テーブルのスキーマ定義
+class PlaceData(db.Model):
+    __tablename__ = 'placedata'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    userid = db.Column(db.String)
+    side = db.Column(db.Integer)
+    created_at = db.Column(db.Time)
+    geom = db.Column(Geometry('POLYGON'))
+```
+
+新規の領域を作る(SQLのInsertを発行する)際は、WKT(Well Known Text)形式でジオメトリーのデータを渡します。
+
+```
+    newarea = PlaceData(userid=userid, created_at=func.now(),side=side, geom=newareaWKT)
+    db.session.add(newarea)
+    db.session.commit()
+```
+
+ここでは使っていませんが、空間検索なども実行できます。
+GeoAlchemyの[公式ドキュメント](https://geoalchemy-2.readthedocs.io/en/latest/index.html)などを参照してください。
+
+最後に動作確認をします。app.pyを保存したディレクトリで、以下のコマンドを実行します。
+
+```
+$ python app.py
+```
+
+開発サーバーですよという警告が出ますが、IPアドレスとポートが表示され動作します。
+curlで動作確認をします。以下コマンドで、動作確認用のメッセージが出力されます。
+
+```
+$ curl http://127.0.0.1:5000/
+```
+
+また、以下のコマンドで、データベースに新しいエリアが作成され、既存のエリアのリストがJSONで返ってきます。
+
+```
+$ curl -X POST -H "Content-Type: application/json" -d '{"lastid":"0","userid":"12345","side":"0","newarea":"POLYGON((1 0,3 0,3 2,1 2,1 0))"}' http://127.0.0.1:5000/makearea
+```
+
+### Webサーバーの公開
+
+ここまでは、AWS上の仮想マシンで外からのアクセスがされない状態でのテストでした。次に、nginxを設定して外部に公開する設定をします。
+
+uwsgi用の設定ファイルを作成します。app.pyと同じ場所にapp.iniというファイル名で以下のファイルを作成します。
+
+```app.ini
+[uwsgi]
+module = app
+callable = app
+master = true
+processes = 1
+socket = /tmp/uwsgi.sock
+chmod-socket = 666
+vacuum = true
+die-on-term = true
+wsgi-file = /home/ubuntu/placeplateau_web/app.py
+logto = /home/ubuntu/placeplateau_web/app.log
+```
+
+nginxの設定ファイルを修正します。以下のコマンドでroot権限で設定ファイルを開き編集します。
+
+```
+$ sudo nano /etc/nginx/nginx.conf
+```
+
+httpのセクションに以下の二行があるので、sites-enabledの方をコメントアウトします。
+
+```
+        include /etc/nginx/conf.d/*.conf;
+        #include /etc/nginx/sites-enabled/*;
+```
+
+nginxのconf.d以下にuwsgi.confを作成します。
+
+```
+$ sudo nano /etc/nginx/conf.d/uwsgi.conf
+```
+
+uwsgi.confに以下の内容を記載します。
+
+```uwsgi.conf
+server {
+    listen    80;
+    location / {
+        include uwsgi_params;
+        uwsgi_pass unix:///tmp/uwsgi.sock;
+    }
+}
+```
+
+ここまでできたら、nginxを再起動します。
+
+```
+$ sudo service nginx restart
+```
+
+以下のコマンドでuwsgiを起動して、外部からアクセスして確認します。
+
+```
+$ uwsgi --ini app.ini
+```
+
+EC2のインスタンスの情報から、パブリックIPv4アドレスを確認し、ブラウザでアクセスするなどでサーバーの動作を確認できます。
+
+![ブラウザでアクセスしたところ](image-39.png)
+
+```
+※ドメイン取得やSSLについて
+ここまでの手順ではHTTPでの直接IPアドレスを指定したアクセスで検証しています。
+実際のサービスを運用するためには、SSLを使ったアクセスや、正式にドメインを取得しての様々な設定などが必要ですが、
+有料の契約を含むことなど本項の内容を超えるので、ここでは説明しません。
+```
 
 
 メモ
