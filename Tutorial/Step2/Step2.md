@@ -963,22 +963,300 @@ PostGISへの接続を設定します。「PostGISレイヤを追加」を選択
 
 地理情報を扱うアプリ、とくにゲームなどでは、チート対策が重要になります。
 しかし、スマホのアプリではGPS座標を詐称するようなツールもあり、地理情報のチート対策は簡単ではありません。
-たとえば、現実にはあり得ないスピードで移動した場合を判定することや、システム側に現実的に侵入不可能な場所の地図を持っておいて、異常な場所にいないか判定するなどの方法がありますが、確実にチートを判定することは困難です。
+たとえば、現実にはあり得ないスピードで移動した場合を判定することや、
+システム側に現実的に侵入不可能な場所の地図を持っておいて、異常な場所にいないか判定するなどの方法がありますが、確実にチートを判定することは困難です。
 そのため、継続的にデータを取得しておき、統計的に怪しそうな挙動をフィルタリングするなどの後手の対策が主となります。
 また、取得できる報酬の上限を決めておくなどの対策も必要となります。
 
 ### コラム　プライバシーについて
 
-チート対策ともかかわりますが、個人に紐づく地理情報は個人情報となります。他人に見られないように管理すること、匿名化して統計処理することなど、取り扱いに注意すること、プライバシーポリシーの提示や取得する情報の利用目的などの明確化など、一般的な個人情報と同様な取り扱いを気を付ける必要があります。
+チート対策ともかかわりますが、個人に紐づく地理情報は個人情報となります。
+他人に見られないように管理すること、匿名化して統計処理することなど、取り扱いに注意すること、
+プライバシーポリシーの提示や取得する情報の利用目的などの明確化など、一般的な個人情報と同様な取り扱いを気を付ける必要があります。
 
 ## アプリとしてリリースする
 
-### Google Playに出す
+アプリ、とくにiOSやAndroidにインストールするようなモバイル向けアプリとしてリリースするには多くのハードルがあります。
+もちろん、ちゃんとしたアプリとして使えるようにデザインやUXを作りこむことも大事ですし、
+サーバーと連携するものでは、インフラの準備なども必要です。
+
+ここでは、一般的な流れの簡単な説明とポイントの説明、
+そしてGeospatial APIのAPIキーの扱いについて説明します。
+
+各プラットフォームの規約への適合など一般的な詳細については、
+各プラットフォームの公式ドキュメントの最新版などを参照してください。
+
+### APIキーの扱いについて
+
+外部のAPIを使う場合にAPIキーをどう扱うかが課題となります。
+アプリ内のプログラムに埋め込んで使うこともできますが、アプリの実行バイナリはダウンロードされユーザーの端末で実行されるものなので、
+解析されてAPIキーが不正に取得されてしまう可能性があります。
+実行ファイルの難読化などの手法はありますが、100%守れる保証はありません。
+
+仮にAPIキーが流出した場合、不正にAPIアクセスされ、情報流出や不正な利用による課金などが起こる可能性があります。
+対策としては、流出したAPIキーを無効にするなどの方法もありますが、アプリに組み込んでいると全て一律のAPIキーを使うことになるので、
+一般の利用者も使えなくなり、アプリに新しいAPIキーを含めて配信するタイミングや、ユーザーがアップデートするタイミングなどを調整しなければなりません。
+
+まず大前提として、APIキーの権限範囲を絞っておく（Geospatial APIの場合はARCore APIの範囲に限定するのがよい）というのが重要ですが、
+各プラットフォームでそれぞれAPIキーを秘匿して管理するための方法が用意されているので、それぞれ解説します。
+
+### Google Playでアプリを配信する
+
+Android端末用のGoogle Playへの配信を説明します。
+
+#### Keyless認証の設定
+
+Google提供のサービスのAPIキーを管理するのに、Androidでは[Keyless認証](https://developers.google.com/ar/develop/unity-arf/geospatial/enable-android?hl=ja#keyless_authorization_2)を使えます。
+公式ドキュメントの手順に沿って設定します。
+
+最初に「Project Settings」の「XR Plug-in Management/ARCore Extensions」の設定項目で、「Android Authentication Strategy」で「Keyless(recommended)」を選択します。
+
+![ARCore Extensionsの設定](image-49.png)
+
+次に、「Project Settings」の「Player/Android/Publishing Settings」の「Keystore Manager」ボタンをクリックします。
+
+![Keystore Manager](image-50.png)
+
+「Create New/Anywhere」を選択してプロジェクト内にキーストアを作成します。
+このキーストアには秘密鍵が記録されるので、うっかりリポジトリに入れてGitHubで全世界に公開しないように管理します。
+
+![Keystoreの新規作成](image-51.png)
+
+パスワードやエイリアスなどを適切に設定して「Add Key」を押すと自動的にキーが設定されます。
+
+次に、作成したキーのフィンガープリントを表示します。コマンドラインでkeytoolが動作することを確認して次のコマンドを実行してください。この後の手順のためにフィンガープリントの文字列をコピーしておきます。
+※keytoolはJDKに含まれています。Unityのインストール時にJDKが入っていなければ、別途JDKをインストールすることでも使えるようになります。
+
+```
+$ keytool -list -v -keystore キーストアファイルのパス
+キーストアのパスワードを入力してください:
+キーストアのタイプ: PKCS12
+キーストア・プロバイダ: SUN
+
+キーストアには1エントリが含まれます
+
+別名: forgeospatialapi
+作成日: 2023/09/18
+エントリ・タイプ: PrivateKeyEntry
+証明書チェーンの長さ: 1
+証明書[1]:
+所有者: O=Oho
+発行者: O=Oho
+シリアル番号: 23bfbe40
+有効期間の開始日: Mon Sep 18 16:37:06 GMT+09:00 2023終了日: Tue Sep 05 16:37:06 GMT+09:00 2073
+証明書のフィンガプリント:
+         SHA1: 3E:C8:E4:F9:C6:29:EE:65:6E:B5:BE:B6:9C:4C:35:8F:19:78:ED:AD　※←この文字列がフィンガープリント
+         SHA256: 1F:B4:9B:D1:B6:67:B4:00:AB:EE:95:5D:E8:7D:23:5C:9C:3E:D0:76:07:38:87:82:67:A3:AA:A3:40:90:6E:25
+署名アルゴリズム名: SHA1withRSA (弱)
+サブジェクト公開キー・アルゴリズム: 2048ビットRSAキー
+バージョン: 3
+
+*******************************************
+*******************************************
+
+Warning:
+<forgeospatialapi>はSHA1withRSA署名アルゴリズムを使用しており、これはセキュリティ・リスクとみなされます。このアルゴリズ ムは将来の更新で無効化されます。
+```
+
+フィンガープリントの文字列をコピーしたら、[Google Cloud Console](https://console.cloud.google.com/)を開きます。
+適切なプロジェクトを選択していることを確認して、「APIとサービス/認証情報」のページを開きます。
+「認証情報の作成」から「OAuth クライアントID」を選びます。
+
+![OAuthクライアントID](image-52.png)
+
+コピーしたフィンガープリントの入力とパッケージ名などを設定し、「作成」ボタンを押します。
+※OAuth同意画面の設定などが出る場合があります。必須項目を適切に設定します。
+
+![OAuthクライアントID設定](image-53.png)
+
+これで、ビルドするとKeyless認証でGeospatial APIの認証が成功するようになります。
+キーストアのパスワードはUnityのプロジェクトを再度開くときに消えている場合があるので、うまくいかないときは入力されている状態か確認してください。
+
+#### Google Playでの配信
+
+[Google Play Console](https://play.google.com/console/about/)にアクセスし、「Play Consoleに移動」からログインします。
+この時、はじめての場合はユーザー登録から始まります。個人でアプリを公開する場合は、個人ユーザーの選択肢を選ぶとよいでしょう。
+連絡先の情報などを入力します。登録の中で$25の登録料の支払いが必要になるので注意してください。
+また、実際にストアにアプリを配信する場合、本人確認の手続きが必要です。
+
+ユーザー登録出来たら、アプリの情報を登録していきます。
+「すべてのアプリ」ページで、「アプリを作成」ボタンを押します。
+
+![アプリを作成](image-59.png)
+
+アプリの名前などの情報を登録し、「アプリを作成」を押します。
+
+![アプリの情報の登録](image-60.png)
+
+まずは内部テスト版を作成します。「テスト/内部テスト」から「新しいリリースを作成」を押します。
+
+![内部テストでリリースを作成](image-61.png)
+
+Unityのビルド設定で「Build App Bundle (Google Play)」にチェックしてリリース設定でビルドします。
+
+![Unityのビルド設定](image-63.png)
+
+できた.aabファイルをアップロードします。また、リリース名などの情報も入力し、「次へ」を押します。
+
+![ビルドのアップロードなど](image-62.png)
+
+エラーや警告が表示されています。これらはアップロードしたアプリや開発者ユーザーのアカウントの状況で異なるので、適宜メッセージを確認しながら解決します。
+
+![リリースの作成](image-64.png)
+
+同様の手順を製品版リリースで行い、Googleの審査に合格すると製品版としてGoogle Playストアで公開することができます。
+
+Google Play Consoleではアプリのリリースだけでなく、広告や課金の設定や、インストール数の確認、レビューの確認などの様々な機能があります。使いこなしてアプリをよりよいものに改善してください。
+
+### AppStoreでアプリを配信する
+
+iOS端末用のAppStoreへの配信を説明します。
+
+#### JWTでのトークン認証
+
+iOS端末では、トークン認証を使います。これは、ユーザーごとの短期間の認証トークンをサーバー側で生成することで、アプリ内にAPIキーを内包しなくてよい仕組みです。
+サービス側のサーバーに認証用の秘密鍵を置き、APIなどで、サーバー側の処理で秘密鍵から有効期限が短い認証トークンを発行。それをクライアント側で受け取りGoogleAPIの認証に使います。
+こうすることで、サーバー側の認証により正しいユーザーのみGoogleのAPIを適正に使うことができます。
+また、短有効期間のトークンなので、不正に入手されても利用には大きな制限がかかります。
+一方で、サーバーの用意が必要なことなど、APIキーによる認証より開発・運用に手間がかかります。
+[公式ドキュメント](https://developers.google.com/ar/develop/unity-arf/cloud-anchors/developer-guide-ios?hl=ja#enable_the_arcore_api)を参考にしてください。
+
+最初に、Google Cloud Consoleでサービスアカウントを作成します。
+「APIとサービス/認証情報」ページから「認証情報を作成」の「サービスアカウント」を選択します。
+
+![サービスアカウントの作成](image-54.png)
+
+サービスアカウント名など、必要な情報を入力して進めます。
+「ロール」には、「サービス アカウント トークン作成者」を設定します。
+
+認証情報ページに戻ると、リストに作成されたサービスアカウントが表示されているので、クリックして表示されたページで、「キー」を選択します。
+
+![キーの作成](image-55.png)
+
+ここで、「鍵を追加/新しい鍵を作成」で「JSON」を選び、作成します。
+自動的にJSONファイルがダウンロードされるので、秘密鍵として権限のない人がアクセスできないように保管します。
+
+次に、サーバー側のプログラムを作成します。
+前節で作成したPythonのプログラムに、トークンを生成する機能を追加します。
+次のように、importの追加、初期化コードとメソッドの追加を行います。
+
+```
+from datetime import datetime,date,timedelta
+import jwt
+
+.....
+
+with open ('testgeospatialapi-165ee1b61a8f.json','r') as f:
+    service_account_info = json.load(f)
+
+private_key = service_account_info['private_key']
+client_email = service_account_info['client_email']
+
+.....
+
+# GeospatialAPIの認証トークンの作成（※実際にサービスに使用する際は認証の仕組みが必要）
+@app.route('/token', methods=['GET'])
+def token():
+    data = request.args.get('key','')
+    if data != 'password':
+        return 'error'
+
+    current_time = datetime.now()
+    expiration_time = current_time + timedelta(hours=1)
+
+    payload = {
+        'iss': client_email,
+        'sub': client_email,
+        'iat': int(current_time.timestamp()),
+        'exp': int(expiration_time.timestamp()),
+        'aud': 'https://arcore.googleapis.com/',
+    }
+
+    token = jwt.encode(payload, private_key, algorithm='RS256')
+    return token
+```
+
+ここでは認証は形だけのものですが、実際のサービスでは「必ず」ユーザー単位のちゃんとした認証をしてトークンの発行を行います。
+
+この状態でサーバーにアクセスすると、認証用トークンの文字列が返ってきます。
+
+![トークンが発行されたところ](image-56.png)
+
+これをUnity側で取得してAPI認証をします。
+GeoPaintManager.csに次のメソッドを追加します。
+トークン認証はiOSの時だけなので、#ifでiOSの時だけ有効になるようにしています。
+
+``` GeoPaintManager.cs
+#if UNITY_IOS
+    public static IEnumerator GetToken(ARAnchorManager arAnchorManager)
+    {
+        UnityWebRequest req = new UnityWebRequest(url + "token?key=password", "GET");
+        req.downloadHandler = (DownloadHandler)new DownloadHandlerBuffer();
+
+        yield return req.SendWebRequest();
+
+        if (req.result == UnityWebRequest.Result.Success)
+        {
+            var token = req.downloadHandler.text.Trim();
+            Debug.Log(token);
+            ARAnchorManagerExtensions.SetAuthToken(arAnchorManager,token);
+        }
+        else
+        {
+            Debug.LogError("Error sending GET request: " + req.error);
+        }
+    }
+#endif
+```
+
+また、「Assets/Samples/ARCore Extensions/1.38.0/Geospatial Samples/Scripts/」にある、GeospatialController.csを修正します。
+AvailabilityCheckメソッド内にトークンを取得し認証するコードを追加します。
+
+```
+
+            if (Input.location.status != LocationServiceStatus.Running)
+            {
+                Debug.LogWarning(
+                    "Location services aren't running. VPS availability check is not available.");
+                yield break;
+            }
+
+            // Update event is executed before coroutines so it checks the latest error states.
+            if (_isReturning)
+            {
+                yield break;
+            }
+
+---------------ここから
+#if UNITY_IOS
+            yield return GeoPaintManager.GetToken(AnchorManager);
+#endif
+---------------ここまで追加
+
+            var location = Input.location.lastData;
+            var vpsAvailabilityPromise =
+                AREarthManager.CheckVpsAvailabilityAsync(location.latitude, location.longitude);
+            yield return vpsAvailabilityPromise;
+
+            Debug.LogFormat("VPS Availability at ({0}, {1}): {2}",
+                location.latitude, location.longitude, vpsAvailabilityPromise.Result);
+            VPSCheckCanvas.SetActive(vpsAvailabilityPromise.Result != VpsAvailability.Available);
+```
+
+ここが連携していないと、GeospatialController.csの方で、認証が通っていないとされてしまうため、このように認証が通った後にGeospatialAPIの有効性チェックが動作するように流れを修正します。
+
+最後に、ARCore Extensionsの設定で、iOSのトークン認証を有効にします。
+
+![認証トークンの有効化](image-57.png)
+
+以上でビルドして動作することを確認しましょう。
+また、Google Cloud Consoleで「IAMと管理/サービスアカウント」で個々のサービスアカウントを選択し、指標タブを見ると、APIが使用されているかを確認できます。活用してください。
+
+![サービスアカウントの指標](image-58.png)
+
+#### AppStoreでの配信
 
 
-### AppStoreに出す
-
-JWTでのトークン認証
 
 
 //////　以下メモ
