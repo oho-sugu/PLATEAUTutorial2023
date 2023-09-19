@@ -1256,29 +1256,50 @@ AvailabilityCheckメソッド内にトークンを取得し認証するコード
 
 #### AppStoreでの配信
 
+AppStoreで配信するためには、Apple Developer Programへの登録が必要です。また、個人としての登録で年間登録料として1万円ほどかかります。
+ここではApple Developer Programへの登録が完了している前提でアプリの登録作業を見ていきます。
 
+まず、[Appleの開発者サイト](https://developer.apple.com/account)で必要なファイルを作成します。
 
+![Apple Developerサイト](image-65.png)
 
-//////　以下メモ
+必要なものは、証明書、アプリID、プロファイルの３つです。開発用にはDeveloper、配布用にはDistributeのものが必要になります。
+[公式のドキュメント](https://developer.apple.com/jp/help/account/)に詳しい方法が載っているので、そちらを参照してください。
 
-## 位置情報を複数人で共有する
+同様に、[App Store Connect](https://appstoreconnect.apple.com)の方でも設定を進めます。
+「アプリ」ページでアプリを新規作成します。
+ App Store Connectも[公式ドキュメント](https://developer.apple.com/jp/help/app-store-connect/)を参照してください。
 
-サーバーと連携する仕組みの作成
- 位置情報を扱うときに気にすること
-  座標系
-  精度
- データベース
-  格納方法 単なるDoubleか、空間データ構造か
-  インデックス
+![App Store Connectのページ](image-66.png)
 
-## 池袋塗りつぶしゲームを作る
+AppStoreの方は、Google Playと違いXCodeから作成したアプリのパッケージファイルを直接アップロードします。
 
-  チート対策
- データ分析
-  どんな分析ができる？
-  分析のヒント
- オクルージョン
+UnityでRelease設定でのiOS向けのビルドをします。
 
-## アプリとしてリリースする
+![UnityのiOSビルド設定](image-67.png)
 
-AppStore・Google Playに出す方法
+Unityのビルドが成功したらXCodeでプロジェクトを開きます。
+この時、事前にDeveloperサイトやApp Store Connectで設定したバンドルID、ダウンロードしたProvisioning Profileが設定され、証明書がインストールされて自分のチームが設定されていることを確認します。
+
+ひと通り設定を確認したら一度正常にビルドできるか確かめてみます。
+問題ないようなら、XCodeのメニューから「Product/Archive」を選び、App Store Connectにアップロードするためのビルドを作ります。
+
+パッケージ作成が終わると、Archivesのウィンドウが開くので、「Distribute App」ボタンを押して画面の指示に従ってビルドをApp Store Connectにアップロードします。
+
+![Archiveでパッケージができたところ](image-68.png)
+
+しばらくすると、App Store Connectの方にアップロードしたビルドが表示されます。
+
+最初はTestFlightにアップロードしたビルドが表示されます。
+この状態であらかじめ招待した少数のテスターで行う内部テストを実施することができます。
+また、審査に提出することで、不特定多数に向けた外部テストを行うこともできます。
+
+![TestFlight画面](image-69.png)
+
+ここから、App Storeページで、スクリーンショットやアプリの説明文などのアプリ情報や各種設定を行うことで、審査に提出できるようになります。
+
+最後にAppleの審査が承認されたらApp Storeにリリースします。
+
+機能だけでなく、App Store Reviewガイドラインや、関連するAppleのガイドラインに沿うようにアプリにすることも重要です。
+公式のドキュメントをよく読み、進めてください。
+
