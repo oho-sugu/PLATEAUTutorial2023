@@ -94,12 +94,16 @@ Playerタブで、Android,iOSの各プラットフォームを以下のように
 - Graphics APIは、OpenGL ES3以上が必要です。（Vulkanは外しておいた方が無難です）
 - Target ArchitectureのARMv7のチェックを外す
 
+![Android Build Settings](image-70.png)
+
 【iOSの場合】
 
 - サポートするOSは、iOS11以上です。
 - ARM64でビルドします。
 - 「Require ARKit Support」にチェックを入れます。
 - 「Location Usage Description」に、位置情報を使う際にユーザーに通知するメッセージの文字列を入れます。
+
+![iOS Build Settings](image-71.png)
 
 URPの設定で、Renderer FeaturesにAR Background Renderer Featureが設定されていない場合、追加します。使用するURP設定が分からなければ、すべての設定に追加します。
 
